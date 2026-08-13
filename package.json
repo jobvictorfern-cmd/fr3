@@ -6,7 +6,15 @@
   "description": "Editor visual de relatorios FastReport (.fr3) que roda no navegador, sem dependencias.",
   "scripts": {
     "start": "node scripts/serve.js",
-    "test": "node --test"
+    "build": "node scripts/build-dist.js",
+    "icons": "node scripts/make-icons.js",
+    "test": "node --test",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
   },
   "engines": {
     "node": ">=18"

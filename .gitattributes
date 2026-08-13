@@ -1,0 +1,4 @@
+# Relatorios do FastReport usam CRLF e precisam sobreviver byte a byte ao
+# checkout em qualquer sistema — o teste de round-trip depende disso.
+*.fr3 -text
+*.term -text

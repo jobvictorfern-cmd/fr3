@@ -18,6 +18,10 @@ export const store = {
   /** @type {Fr3Document|null} */
   doc: null,
   fileName: 'relatorio.fr3',
+  /** caminho no disco (apenas no aplicativo desktop) */
+  filePath: null,
+  /** codificacao original do arquivo: 'utf8' ou 'windows1252' */
+  encoding: 'utf8',
   pageIndex: 0,
   /** @type {Array<object>} nos selecionados (objetos, bandas ou a pagina) */
   selection: [],
@@ -47,9 +51,11 @@ export const store = {
 
   /* ------------------------------ documento ------------------------------- */
 
-  load(text, fileName) {
+  load(text, fileName, meta = {}) {
     this.doc = new Fr3Document(text);
     this.fileName = fileName || 'relatorio.fr3';
+    this.filePath = meta.path || null;
+    this.encoding = meta.encoding || 'utf8';
     this.pageIndex = 0;
     this.selection = [];
     this._undo = [];
@@ -61,6 +67,8 @@ export const store = {
   newDocument() {
     this.doc = Fr3Document.blank();
     this.fileName = 'novo.fr3';
+    this.filePath = null;
+    this.encoding = 'utf8';
     this.pageIndex = 0;
     this.selection = [];
     this._undo = [];

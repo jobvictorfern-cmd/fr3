@@ -5,6 +5,7 @@
  */
 
 import { store } from './store.js';
+import { platform } from './platform.js';
 import { createCanvas } from './canvas.js';
 import { createTree } from './tree.js';
 import { createInspector } from './inspector.js';
@@ -65,8 +66,11 @@ store.on((what) => {
 
 function updateStatus() {
   status.file.textContent = store.doc
-    ? `${store.fileName}${store.dirty ? ' •' : ''}`
+    ? `${store.filePath || store.fileName}${store.dirty ? ' •' : ''}`
     : 'Nenhum arquivo aberto';
+  platform.setTitle(
+    store.doc ? `${store.dirty ? '• ' : ''}${store.fileName} — Editor FR3` : 'Editor FR3'
+  );
 
   const selection = store.selection;
   if (!store.doc || !selection.length) {
@@ -99,40 +103,66 @@ function updateToolbar() {
 
 /* --------------------------------- arquivos -------------------------------- */
 
-async function loadFromFile(file) {
-  const text = await file.text();
+/** Aplica um arquivo lido pela camada de plataforma. */
+function applyFile(file) {
+  if (!file) return false;
   try {
-    store.load(text, file.name);
+    store.load(file.contents, file.name, { path: file.path, encoding: file.encoding });
     fitZoom();
+    return true;
   } catch (error) {
-    alert(`Nao foi possivel abrir "${file.name}":\n${error.message}`);
+    platform.alert(`Nao foi possivel abrir "${file.name}":\n${error.message}`);
+    return false;
   }
 }
 
-function save() {
-  if (!store.doc) return;
-  const text = store.doc.serialize();
-  const blob = new Blob([text], { type: 'application/xml' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = store.fileName.replace(/\.(fr3|term|xml)$/i, '') + '.fr3';
-  link.click();
-  URL.revokeObjectURL(url);
-  store.dirty = false;
-  updateStatus();
+async function confirmDiscard() {
+  if (!store.dirty) return true;
+  return platform.confirm('Ha alteracoes nao salvas. Descartar?');
 }
 
-async function loadSample() {
+async function openFile() {
+  if (!(await confirmDiscard())) return;
+  applyFile(await platform.open());
+}
+
+async function openPath(path) {
+  if (!(await confirmDiscard())) return;
   try {
-    const response = await fetch('samples/rsiamac_1.fr3');
-    if (!response.ok) throw new Error(String(response.status));
-    store.load(await response.text(), 'rsiamac_1.fr3');
-    fitZoom();
-  } catch {
-    store.newDocument();
-    fitZoom();
+    applyFile(await platform.openPath(path));
+  } catch (error) {
+    platform.alert(String(error));
   }
+}
+
+async function save({ saveAs = false } = {}) {
+  if (!store.doc) return false;
+  try {
+    const result = await platform.save(
+      {
+        contents: store.doc.serialize(),
+        path: store.filePath,
+        name: store.fileName,
+        encoding: store.encoding,
+      },
+      { saveAs }
+    );
+    if (!result) return false;
+    store.filePath = result.path;
+    store.fileName = result.name;
+    store.dirty = false;
+    updateStatus();
+    return true;
+  } catch (error) {
+    platform.alert(`Nao foi possivel salvar:\n${error}`);
+    return false;
+  }
+}
+
+async function newDocument() {
+  if (!(await confirmDiscard())) return;
+  store.newDocument();
+  fitZoom();
 }
 
 /* --------------------------------- edicao ---------------------------------- */
@@ -262,18 +292,10 @@ function fitZoom() {
 /* ------------------------------- interface --------------------------------- */
 
 function bindToolbar() {
-  $('btnNew').addEventListener('click', () => {
-    if (store.dirty && !confirm('Descartar as alteracoes nao salvas?')) return;
-    store.newDocument();
-    fitZoom();
-  });
-  $('btnOpen').addEventListener('click', () => $('fileInput').click());
-  $('fileInput').addEventListener('change', (event) => {
-    const file = event.target.files?.[0];
-    if (file) loadFromFile(file);
-    event.target.value = '';
-  });
-  $('btnSave').addEventListener('click', save);
+  $('btnNew').addEventListener('click', newDocument);
+  $('btnOpen').addEventListener('click', openFile);
+  $('btnSave').addEventListener('click', () => save());
+  $('btnSaveAs').addEventListener('click', () => save({ saveAs: true }));
   $('btnUndo').addEventListener('click', () => store.undo());
   $('btnRedo').addEventListener('click', () => store.redo());
 
@@ -371,12 +393,12 @@ function bindShortcuts() {
     }
     if (ctrl && event.key.toLowerCase() === 's') {
       event.preventDefault();
-      save();
+      save({ saveAs: event.shiftKey });
       return;
     }
     if (ctrl && event.key.toLowerCase() === 'o') {
       event.preventDefault();
-      $('fileInput').click();
+      openFile();
       return;
     }
     if (typing) return;
@@ -426,6 +448,12 @@ function bindShortcuts() {
 
 function bindDropZone() {
   const hint = $('dropHint');
+  // No desktop o proprio webview intercepta o arraste e envia os caminhos.
+  if (platform.isDesktop) {
+    platform.onFileDrop?.((path) => openPath(path));
+    return;
+  }
+
   let depth = 0;
   window.addEventListener('dragenter', (event) => {
     event.preventDefault();
@@ -437,28 +465,84 @@ function bindDropZone() {
     depth = Math.max(0, depth - 1);
     if (!depth) hint.hidden = true;
   });
-  window.addEventListener('drop', (event) => {
+  window.addEventListener('drop', async (event) => {
     event.preventDefault();
     depth = 0;
     hint.hidden = true;
     const file = event.dataTransfer?.files?.[0];
-    if (file) loadFromFile(file);
+    if (!file) return;
+    if (!(await confirmDiscard())) return;
+    applyFile({ path: null, name: file.name, contents: await file.text(), encoding: 'utf8' });
   });
 }
 
-function bindUnload() {
-  window.addEventListener('beforeunload', (event) => {
-    if (!store.dirty) return;
-    event.preventDefault();
-    event.returnValue = '';
-  });
+/** Acoes disparadas pelo menu nativo do aplicativo desktop. */
+const MENU_ACTIONS = {
+  'arquivo.novo': newDocument,
+  'arquivo.abrir': openFile,
+  'arquivo.salvar': () => save(),
+  'arquivo.salvarComo': () => save({ saveAs: true }),
+  'arquivo.imprimir': () => {
+    if (!preview.isOpen) preview.open();
+    setTimeout(() => window.print(), 100);
+  },
+  'editar.desfazer': () => store.undo(),
+  'editar.refazer': () => store.redo(),
+  'editar.duplicar': () => {
+    const objects = selectedObjects();
+    if (objects.length) {
+      store.mutate(() => {
+        store.selection = objects.map((node) => store.doc.duplicate(node));
+      });
+    }
+  },
+  'editar.excluir': deleteSelection,
+  'exibir.ampliar': () => setZoom(store.zoom * 1.25),
+  'exibir.reduzir': () => setZoom(store.zoom / 1.25),
+  'exibir.ajustar': fitZoom,
+  'exibir.grade': () => {
+    const showGrid = !store.showGrid;
+    $('chkGrid').checked = showGrid;
+    store.setView({ showGrid });
+  },
+  'exibir.previsualizar': () => preview.toggle(),
+};
+
+function bindPlatform() {
+  document.body.classList.toggle('desktop', platform.isDesktop);
+  $('btnSaveAs').hidden = !platform.isDesktop;
+
+  platform.onMenu((id) => MENU_ACTIONS[id]?.());
+  platform.onOpenFile((path) => openPath(path));
+
+  if (platform.isDesktop) {
+    platform.onCloseRequested(async () => {
+      if (!store.dirty) return true;
+      return platform.confirm('Ha alteracoes nao salvas. Fechar mesmo assim?');
+    });
+  } else {
+    window.addEventListener('beforeunload', (event) => {
+      if (!store.dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    });
+  }
 }
 
-bindToolbar();
-bindShortcuts();
-bindDropZone();
-bindUnload();
-loadSample();
+async function start() {
+  bindToolbar();
+  bindShortcuts();
+  bindDropZone();
+  bindPlatform();
+
+  const initial = await platform.initialFile();
+  if (!applyFile(initial)) {
+    store.newDocument();
+    fitZoom();
+  }
+}
+
+start();
 
 // Exposto para depuracao no console do navegador.
-window.fr3 = { store, canvas, preview };
+window.fr3 = { store, canvas, preview, platform };

@@ -1,7 +1,8 @@
 # Editor FR3
 
-Editor visual de relatorios **FastReport (.fr3)** que roda no navegador, sem
-build e sem dependencias. Abre o arquivo, mostra a pagina com as bandas e os
+Editor visual de relatorios **FastReport (.fr3)** que roda como **aplicativo
+desktop (Tauri)** ou direto no navegador, sem build e sem dependencias no
+front-end. Abre o arquivo, mostra a pagina com as bandas e os
 objetos como no designer do FastReport, permite editar e devolve um `.fr3` que
 continua abrindo no Delphi/FastReport original.
 
@@ -9,6 +10,24 @@ O editor tambem le arquivos com outras extensoes que carregam o mesmo XML
 (`.term`, `.xml`) — e o caso dos tickets exportados pelo sistema de pesagem.
 
 ## Como executar
+
+### Aplicativo desktop (Tauri)
+
+```bash
+npm install         # baixa apenas a CLI do Tauri
+npm run tauri:dev   # abre o aplicativo em modo desenvolvimento
+npm run tauri:build # gera o instalador
+```
+
+Precisa do [Rust](https://rustup.rs) e, no Windows, do WebView2 (ja incluido no
+Windows 10/11). No Linux, dos pacotes `libwebkit2gtk-4.1-dev`,
+`build-essential`, `libssl-dev`, `libayatana-appindicator3-dev` e `librsvg2-dev`.
+
+O instalador do Windows tambem sai pronto pelo GitHub Actions: aba **Actions**
+-> **Aplicativo desktop** -> **Run workflow**; o `.exe` fica nos artefatos.
+Publicar uma tag `v*` anexa o instalador a uma release.
+
+### Navegador
 
 ```bash
 npm start        # sobe um servidor estatico em http://localhost:5173
@@ -18,8 +37,8 @@ Qualquer servidor estatico serve (`python3 -m http.server`, nginx, Live Server
 do VS Code). Nao abra o `index.html` direto pelo `file://`: o editor usa
 modulos ES e `fetch`, que o navegador bloqueia nesse esquema.
 
-Ao abrir, o relatorio de exemplo em `samples/rsiamac_1.fr3` e carregado. Para
-trabalhar em outro arquivo, use **Abrir** ou arraste o `.fr3` para a janela.
+No navegador, o relatorio de exemplo `samples/rsiamac_1.fr3` e carregado ao
+iniciar; no desktop, abre o arquivo que voce clicou (ou um relatorio em branco).
 
 ## O que da para fazer
 
@@ -57,6 +76,18 @@ trabalhar em outro arquivo, use **Abrir** ou arraste o `.fr3` para a janela.
 - Expressoes sem valor ficam destacadas.
 - Botao **Imprimir / PDF** usa a impressao do navegador (a folha ja sai no
   tamanho certo).
+
+## O que o desktop acrescenta
+
+- **Duplo clique no `.fr3`/`.term`** abre o editor (associacao registrada pelo
+  instalador). Com o aplicativo ja aberto, o arquivo entra na mesma janela.
+- **`Ctrl+S` grava por cima do arquivo original**, sem passar por Downloads.
+  `Ctrl+Shift+S` salva como.
+- **Codificacao preservada**: arquivos antigos gravados em ANSI (Windows-1252)
+  sao lidos e regravados em ANSI; os demais, em UTF-8.
+- **Menu nativo** com Arquivo/Editar/Exibir e a lista de **abertos recentemente**.
+- **Arrastar o arquivo para a janela** abre pelo caminho real no disco.
+- **Aviso ao fechar** com alteracoes pendentes.
 
 ## Atalhos
 
@@ -102,7 +133,15 @@ src/ui/tree.js        arvore da estrutura
 src/ui/inspector.js   painel de propriedades
 src/ui/datapanel.js   variaveis, datasets e valores de teste
 src/ui/preview.js     pre-visualizacao/impressao
+src/ui/platform.js    ponte navegador x desktop (arquivos, menu, dialogos)
 scripts/serve.js      servidor estatico de desenvolvimento
+scripts/build-dist.js monta dist/ para o Tauri e para publicacao
+scripts/make-icons.js gera os icones do aplicativo
+src-tauri/            aplicativo desktop em Rust
+  src/lib.rs          janela, plugins, menu, argumentos de linha de comando
+  src/files.rs        ler/gravar relatorio (com codificacao) e recentes
+  src/menu.rs         menu nativo
+  tauri.conf.json     janela, CSP, instalador e associacao de arquivos
 test/fr3.test.js      testes (node --test)
 ```
 
@@ -113,7 +152,8 @@ lote.
 ## Testes
 
 ```bash
-npm test
+npm test                                              # nucleo, em Node
+cargo check --manifest-path src-tauri/Cargo.toml      # camada desktop
 ```
 
 Cobrem round-trip byte a byte do relatorio real, codificacao de entidades,
