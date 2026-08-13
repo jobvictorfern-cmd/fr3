@@ -1,6 +1,6 @@
 [package]
 name = "fr3-editor"
-version = "0.2.0"
+version = "0.3.0"
 description = "Editor visual de relatorios FastReport (.fr3)"
 authors = ["SIAMAC"]
 edition = "2021"
