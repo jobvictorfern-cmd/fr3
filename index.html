@@ -12,6 +12,7 @@
   <header class="toolbar">
     <div class="tb-group">
       <strong class="brand">FR3</strong>
+      <button id="btnHome" class="tb-btn" title="Tela inicial">Inicio</button>
       <button id="btnNew" class="tb-btn" title="Novo relatorio (Ctrl+Alt+N)">Novo</button>
       <button id="btnOpen" class="tb-btn" title="Abrir .fr3 (Ctrl+O)">Abrir</button>
       <button id="btnSave" class="tb-btn primary" title="Salvar .fr3 (Ctrl+S)">Salvar</button>
@@ -23,7 +24,7 @@
       <button id="btnRedo" class="tb-btn icon" title="Refazer (Ctrl+Y)">↷</button>
     </div>
 
-    <div class="tb-group" id="insertGroup">
+    <div class="tb-group fr3-only" id="insertGroup">
       <span class="tb-label">Inserir</span>
       <button class="tb-btn" data-insert="TfrxMemoView" title="Objeto de texto">Texto</button>
       <button class="tb-btn" data-insert="TfrxLineView" title="Linha">Linha</button>
@@ -33,7 +34,7 @@
       <button id="btnAddBand" class="tb-btn" title="Adicionar banda">Banda…</button>
     </div>
 
-    <div class="tb-group" id="alignGroup">
+    <div class="tb-group fr3-only" id="alignGroup">
       <span class="tb-label">Alinhar</span>
       <button class="tb-btn icon" data-align="left" title="Alinhar a esquerda">⇤</button>
       <button class="tb-btn icon" data-align="hcenter" title="Centralizar na horizontal">⇔</button>
@@ -46,14 +47,14 @@
       <button class="tb-btn icon" data-align="center-page" title="Centralizar na banda">⊙</button>
     </div>
 
-    <div class="tb-group">
+    <div class="tb-group fr3-only">
       <button id="btnZoomOut" class="tb-btn icon" title="Reduzir">−</button>
       <span id="zoomValue" class="tb-value">100%</span>
       <button id="btnZoomIn" class="tb-btn icon" title="Ampliar">+</button>
       <button id="btnZoomFit" class="tb-btn" title="Ajustar a janela">Ajustar</button>
     </div>
 
-    <div class="tb-group">
+    <div class="tb-group fr3-only">
       <label class="tb-check"><input type="checkbox" id="chkGrid" checked> Grade</label>
       <label class="tb-check"><input type="checkbox" id="chkSnap" checked> Ajustar</label>
       <select id="selUnit" class="tb-select" title="Unidade das medidas">
@@ -62,7 +63,7 @@
       </select>
     </div>
 
-    <div class="tb-group right">
+    <div class="tb-group right fr3-only">
       <button id="btnPreview" class="tb-btn primary" title="Visualizar (F5)">Visualizar</button>
     </div>
   </header>
@@ -115,7 +116,43 @@
   <div id="previewBody" class="preview-body"></div>
 </div>
 
-<div id="dropHint" class="drop-hint" hidden>Solte o arquivo .fr3 para abrir</div>
+<div id="dropHint" class="drop-hint" hidden>Solte o arquivo para abrir</div>
+
+<div id="welcome" class="welcome">
+  <div class="welcome-box">
+    <h1>Editor de relatorios</h1>
+    <p class="welcome-sub">O que voce quer fazer?</p>
+
+    <div class="welcome-grid">
+      <button class="welcome-card" data-welcome="open-fr3">
+        <span class="welcome-ext">.fr3</span>
+        <strong>Alterar relatorio FastReport</strong>
+        <small>Abrir um .fr3 ou .term e editar o layout visualmente</small>
+      </button>
+      <button class="welcome-card" data-welcome="new-fr3">
+        <span class="welcome-ext">.fr3</span>
+        <strong>Criar relatorio FastReport</strong>
+        <small>Comecar um relatorio em branco, tamanho A4</small>
+      </button>
+      <button class="welcome-card" data-welcome="open-rav">
+        <span class="welcome-ext">.rav</span>
+        <strong>Alterar projeto Rave</strong>
+        <small>Abrir um .rav e editar textos, medidas e propriedades</small>
+      </button>
+      <button class="welcome-card" data-welcome="new-rav" disabled>
+        <span class="welcome-ext">.rav</span>
+        <strong>Criar projeto Rave</strong>
+        <small>Indisponivel: criar um .rav do zero exige escrever o formato
+          binario inteiro, o que ainda nao e suportado</small>
+      </button>
+    </div>
+
+    <p class="welcome-note">
+      Tambem da para arrastar o arquivo para esta janela.
+      <button id="welcomeSample" class="link-btn">Abrir o relatorio de exemplo</button>
+    </p>
+  </div>
+</div>
 
 <script type="module" src="src/ui/app.js"></script>
 </body>

@@ -51,6 +51,12 @@
         "name": "Ticket FastReport",
         "description": "Relatorio FastReport gravado com extensao .term",
         "role": "Editor"
+      },
+      {
+        "ext": ["rav"],
+        "name": "Projeto Rave Reports",
+        "description": "Projeto de relatorio Rave Reports (.rav)",
+        "role": "Editor"
       }
     ],
     "windows": {

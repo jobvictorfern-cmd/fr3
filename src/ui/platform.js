@@ -13,8 +13,37 @@ const bridge = typeof window !== 'undefined' ? window.__TAURI__ : null;
 export const isDesktop = !!bridge;
 
 const REPORT_FILTER = {
-  name: 'Relatorio FastReport',
-  extensions: ['fr3', 'term', 'xml'],
+  name: 'Relatorios',
+  extensions: ['fr3', 'term', 'xml', 'rav'],
+};
+
+const RAV_SIGNATURE = [0x52, 0x41, 0x56, 0x1a];
+
+const looksBinary = (bytes) => RAV_SIGNATURE.every((byte, index) => bytes[index] === byte);
+
+/** Texto de um .fr3: UTF-8 quando valido, senao ANSI (Windows-1252). */
+function decodeText(bytes) {
+  try {
+    return { contents: new TextDecoder('utf-8', { fatal: true }).decode(bytes), encoding: 'utf8' };
+  } catch {
+    return { contents: new TextDecoder('windows-1252').decode(bytes), encoding: 'windows1252' };
+  }
+}
+
+const base64ToBytes = (base64) => {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+};
+
+const bytesToBase64 = (bytes) => {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 };
 
 /** O plugin de dialogo ja devolveu string e objeto conforme a versao. */
@@ -35,7 +64,7 @@ function browserPlatform() {
     new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.fr3,.term,.xml,text/xml';
+      input.accept = '.fr3,.term,.xml,.rav';
       input.addEventListener('change', () => resolve(input.files?.[0] || null), { once: true });
       input.click();
     });
@@ -43,38 +72,34 @@ function browserPlatform() {
   return {
     isDesktop: false,
 
-    async initialFile() {
-      // No navegador o exemplo serve de ponto de partida.
-      try {
-        const response = await fetch('samples/rsiamac_1.fr3');
-        if (!response.ok) return null;
-        return {
-          path: null,
-          name: 'rsiamac_1.fr3',
-          contents: await response.text(),
-          encoding: 'utf8',
-        };
-      } catch {
-        return null;
-      }
+    async initialFile(options = {}) {
+      // A tela inicial e o ponto de partida; o exemplo so entra quando pedido.
+      return options.sample ? loadSample() : null;
     },
 
     async open() {
       const file = await pickFile();
       if (!file) return null;
-      return { path: null, name: file.name, contents: await file.text(), encoding: 'utf8' };
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (looksBinary(bytes)) {
+        return { path: null, name: file.name, contents: bytes, encoding: 'binario' };
+      }
+      return { path: null, name: file.name, ...decodeText(bytes) };
     },
 
     async openPath() {
       return null;
     },
 
-    async save({ contents, name }) {
-      const blob = new Blob([contents], { type: 'application/xml' });
+    async save({ contents, name, binary }) {
+      const blob = binary
+        ? new Blob([contents], { type: 'application/octet-stream' })
+        : new Blob([contents], { type: 'application/xml' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = (name || 'relatorio').replace(/\.(fr3|term|xml)$/i, '') + '.fr3';
+      const base = (name || 'relatorio').replace(/\.(fr3|term|xml|rav)$/i, '');
+      link.download = base + (binary ? '.rav' : '.fr3');
       link.click();
       URL.revokeObjectURL(url);
       return { path: null, name: link.download };
@@ -108,16 +133,30 @@ function desktopPlatform() {
   const invoke = (command, args) => core.invoke(command, args);
 
   const readPath = async (path) => {
-    const file = await invoke('read_report', { path });
+    const file = /\.rav$/i.test(path)
+      ? await readBinary(path)
+      : await invoke('read_report', { path });
     await invoke('push_recent', { path: file.path });
     await invoke('refresh_menu');
     return file;
   };
 
+  /** Arquivos .rav trafegam em base64: o IPC do Tauri e JSON. */
+  const readBinary = async (path) => {
+    const file = await invoke('read_binary', { path });
+    return {
+      path: file.path,
+      name: file.name,
+      contents: base64ToBytes(file.base64),
+      encoding: 'binario',
+    };
+  };
+
   return {
     isDesktop: true,
 
-    async initialFile() {
+    async initialFile(options = {}) {
+      if (options.sample) return loadSample();
       // Arquivo recebido por duplo clique / linha de comando.
       const path = await invoke('pending_file');
       return path ? readPath(path) : null;
@@ -132,7 +171,7 @@ function desktopPlatform() {
 
     openPath: readPath,
 
-    async save({ contents, path, name, encoding }, { saveAs = false } = {}) {
+    async save({ contents, path, name, encoding, binary }, { saveAs = false } = {}) {
       let target = saveAs ? null : path;
       if (!target) {
         target = toPath(
@@ -143,7 +182,11 @@ function desktopPlatform() {
         );
         if (!target) return null;
       }
-      await invoke('write_report', { path: target, contents, encoding: encoding || 'utf8' });
+      if (binary) {
+        await invoke('write_binary', { path: target, base64: bytesToBase64(contents) });
+      } else {
+        await invoke('write_report', { path: target, contents, encoding: encoding || 'utf8' });
+      }
       await invoke('push_recent', { path: target });
       await invoke('refresh_menu');
       return { path: target, name: baseName(target) };
@@ -193,6 +236,17 @@ function desktopPlatform() {
       }
     },
   };
+}
+
+/** Relatorio de exemplo que acompanha o projeto. */
+async function loadSample() {
+  try {
+    const response = await fetch('samples/rsiamac_1.fr3');
+    if (!response.ok) return null;
+    return { path: null, name: 'rsiamac_1.fr3', contents: await response.text(), encoding: 'utf8' };
+  } catch {
+    return null;
+  }
 }
 
 export const platform = isDesktop ? desktopPlatform() : browserPlatform();

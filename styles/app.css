@@ -433,3 +433,104 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .preview-body { padding: 0; overflow: visible; }
   .preview-page { box-shadow: none; margin: 0; page-break-after: always; }
 }
+
+/* ------------------------------ tela inicial ----------------------------- */
+
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(160deg, #1f2430, #2b3446);
+  overflow: auto;
+}
+
+.welcome[hidden] { display: none; }
+
+.welcome-box { width: min(820px, 100%); color: var(--text-invert); }
+.welcome-box h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: 0.01em; }
+.welcome-sub { margin: 0 0 20px; color: #9aa4b8; }
+
+.welcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.welcome-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  text-align: left;
+  background: #2b3242;
+  border: 1px solid #3a4457;
+  border-radius: 8px;
+  color: var(--text-invert);
+  cursor: pointer;
+}
+
+.welcome-card:hover:not(:disabled) { background: #333c50; border-color: var(--accent); }
+.welcome-card:disabled { opacity: 0.45; cursor: default; }
+.welcome-card strong { font-size: 15px; }
+.welcome-card small { color: #9aa4b8; line-height: 1.35; }
+
+.welcome-ext {
+  align-self: flex-start;
+  padding: 1px 7px;
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #cfe0ff;
+  background: rgba(47, 111, 235, 0.25);
+  border: 1px solid rgba(47, 111, 235, 0.5);
+  border-radius: 999px;
+}
+
+.welcome-note { margin-top: 18px; color: #9aa4b8; }
+
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #7aa2f7;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --------------------------- documentos .rav ----------------------------- */
+
+.rav-panel {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.3);
+}
+
+.rav-panel h3 { margin: 0 0 10px; }
+.rav-panel p { line-height: 1.5; }
+.rav-panel .muted { color: var(--text-dim); }
+
+.rav-text {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: #f4f5f7;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  max-height: 320px;
+  overflow: auto;
+}
+
+body.rav .fr3-only { display: none !important; }
+body.rav .ruler,
+body.rav .ruler-corner { display: none; }
+body.rav .workspace { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+body.rav .canvas-scroll { grid-column: 1; grid-row: 1; }

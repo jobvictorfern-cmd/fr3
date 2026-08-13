@@ -1,8 +1,15 @@
 # Editor FR3
 
-Editor visual de relatorios **FastReport (.fr3)** que roda como **aplicativo
-desktop (Tauri)** ou direto no navegador, sem build e sem dependencias no
-front-end. Abre o arquivo, mostra a pagina com as bandas e os
+Editor de relatorios que roda como **aplicativo desktop (Tauri)** ou direto no
+navegador, sem build e sem dependencias no front-end. Trabalha com dois
+formatos:
+
+- **FastReport `.fr3`** (tambem `.term`/`.xml`): editor visual completo —
+  pagina em escala real, arrastar, redimensionar, pre-visualizar e imprimir.
+- **Rave Reports `.rav`**: edicao pela estrutura — achar o objeto, ver e
+  alterar textos, medidas e demais propriedades.
+
+Ao abrir, uma tela inicial pergunta o que voce quer fazer. Abre o arquivo, mostra a pagina com as bandas e os
 objetos como no designer do FastReport, permite editar e devolve um `.fr3` que
 continua abrindo no Delphi/FastReport original.
 
@@ -48,6 +55,29 @@ modulos ES e `fetch`, que o navegador bloqueia nesse esquema.
 
 No navegador, o relatorio de exemplo `samples/rsiamac_1.fr3` e carregado ao
 iniciar; no desktop, abre o arquivo que voce clicou (ou um relatorio em branco).
+
+## Projetos Rave (.rav)
+
+O `.rav` e binario e o formato nao e documentado; o suporte aqui veio de
+engenharia reversa e cobre a parte util para manutencao de relatorio:
+
+- **estrutura navegavel**: paginas e objetos (texto, campo de dados, memo,
+  linhas, retangulos, secoes, imagens) com filtro por nome ou conteudo;
+- **edicao de propriedades**: textos, expressoes de campo, medidas (mostradas
+  em milimetros, gravadas nas polegadas que o Rave usa), tamanhos de fonte,
+  cores e opcoes — cerca de tres quartos das propriedades de um projeto real;
+- **mesma garantia do .fr3**: o arquivo original e preservado byte a byte e so
+  o trecho do valor alterado e reescrito. Propriedades cujo tipo ainda nao
+  conhecemos (imagens embutidas, estruturas aninhadas) aparecem como somente
+  leitura em vez de correr o risco de corromper o arquivo;
+- **desfazer/refazer** por trecho de bytes, para aguentar projetos de dezenas
+  de MB (o exemplo usado no desenvolvimento tem 15 MB e 7.141 objetos, e abre
+  em menos de um segundo).
+
+Ainda **nao** existe: desenho visual da pagina Rave, criar um `.rav` do zero e
+edicao de imagens embutidas. Como o formato e reconstruido por observacao,
+**valide o relatorio no Rave Designer antes de publicar** — e guarde uma copia
+do arquivo original.
 
 ## O que da para fazer
 
@@ -136,12 +166,14 @@ src/core/fr3.js       modelo do relatorio (paginas, bandas, objetos, variaveis)
 src/core/units.js     mm/px, TColor (BGR), fonte Delphi, bits de moldura
 src/core/picture.js   leitura/escrita da imagem embutida (Picture.PropData)
 src/core/render.js    desenho dos objetos em DOM (editor e pre-visualizacao)
+src/core/rav.js       leitura/edicao do formato binario do Rave Reports
 src/ui/store.js       estado, selecao e historico de desfazer
 src/ui/canvas.js      area de edicao e interacoes de mouse
 src/ui/tree.js        arvore da estrutura
 src/ui/inspector.js   painel de propriedades
 src/ui/datapanel.js   variaveis, datasets e valores de teste
 src/ui/preview.js     pre-visualizacao/impressao
+src/ui/ravview.js     estrutura e propriedades dos arquivos .rav
 src/ui/platform.js    ponte navegador x desktop (arquivos, menu, dialogos)
 scripts/serve.js      servidor estatico de desenvolvimento
 scripts/build-dist.js monta dist/ para o Tauri e para publicacao
@@ -151,7 +183,8 @@ src-tauri/            aplicativo desktop em Rust
   src/files.rs        ler/gravar relatorio (com codificacao) e recentes
   src/menu.rs         menu nativo
   tauri.conf.json     janela, CSP, instalador e associacao de arquivos
-test/fr3.test.js      testes (node --test)
+test/fr3.test.js      testes do formato .fr3 (node --test)
+test/rav.test.js      testes do formato .rav
 ```
 
 O nucleo (`src/core`) nao depende do DOM para ler e gravar o arquivo, entao
@@ -165,10 +198,13 @@ npm test                                              # nucleo, em Node
 cargo check --manifest-path src-tauri/Cargo.toml      # camada desktop
 ```
 
-Cobrem round-trip byte a byte do relatorio real, codificacao de entidades,
-leitura da estrutura, geometria da pagina, insercao/duplicacao/remocao de
-objetos, redimensionamento de banda, movimentacao entre bandas, variaveis,
-conversao de cores e fontes e a imagem embutida.
+Cobrem, no `.fr3`, round-trip byte a byte do relatorio real, codificacao de
+entidades, leitura da estrutura, geometria da pagina, insercao/duplicacao/
+remocao de objetos, redimensionamento de banda, movimentacao entre bandas,
+variaveis, conversao de cores e fontes e a imagem embutida. No `.rav`, a
+assinatura do formato, os numeros Extended de 80 bits, as strings duplas com
+escape de tamanho, a leitura da estrutura, a edicao de medidas e textos, o
+desfazer e o bloqueio de tipos desconhecidos.
 
 ## Limitacoes conhecidas
 

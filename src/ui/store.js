@@ -8,6 +8,7 @@
  */
 
 import { Fr3Document } from '../core/fr3.js';
+import { RavDocument, isRavFile } from '../core/rav.js';
 import { mmToPx } from '../core/units.js';
 import { getAttr } from '../core/xml.js';
 
@@ -15,8 +16,10 @@ const HISTORY_LIMIT = 60;
 const VALUES_KEY = 'fr3-editor:test-values';
 
 export const store = {
-  /** @type {Fr3Document|null} */
+  /** @type {Fr3Document|RavDocument|null} */
   doc: null,
+  /** @type {'fr3'|'rav'|null} formato do documento aberto */
+  kind: null,
   fileName: 'relatorio.fr3',
   /** caminho no disco (apenas no aplicativo desktop) */
   filePath: null,
@@ -51,8 +54,19 @@ export const store = {
 
   /* ------------------------------ documento ------------------------------- */
 
-  load(text, fileName, meta = {}) {
-    this.doc = new Fr3Document(text);
+  /**
+   * Abre um documento. `data` e texto (.fr3) ou bytes (.rav); o formato e
+   * decidido pelo conteudo, nao pela extensao.
+   */
+  load(data, fileName, meta = {}) {
+    const bytes = data instanceof Uint8Array ? data : null;
+    if (bytes && isRavFile(bytes)) {
+      this.doc = new RavDocument(bytes);
+      this.kind = 'rav';
+    } else {
+      this.doc = new Fr3Document(bytes ? new TextDecoder('utf-8').decode(bytes) : data);
+      this.kind = 'fr3';
+    }
     this.fileName = fileName || 'relatorio.fr3';
     this.filePath = meta.path || null;
     this.encoding = meta.encoding || 'utf8';
@@ -66,6 +80,7 @@ export const store = {
 
   newDocument() {
     this.doc = Fr3Document.blank();
+    this.kind = 'fr3';
     this.fileName = 'novo.fr3';
     this.filePath = null;
     this.encoding = 'utf8';
@@ -89,12 +104,47 @@ export const store = {
     return { xml: this.doc.serialize(), selection: this.selection.map(nodeKey) };
   },
 
+  /** Chave de um objeto .rav, para reencontra-lo depois de reindexar. */
+  ravKey(object) {
+    return object ? `${object.className}|${object.name}|${object.start}` : null;
+  },
+
+  /**
+   * Alteracao em documento .rav. `fn` devolve o registro de desfazer produzido
+   * por RavDocument.setValue (ou false/null se nada mudou). O historico guarda
+   * so o trecho de bytes substituido — snapshots do arquivo inteiro seriam
+   * pesados demais para projetos de dezenas de MB.
+   */
+  mutateRav(fn) {
+    const selected = this.selection[0];
+    const key = selected ? `${selected.className}|${selected.name}` : null;
+    const undoRecord = fn();
+    if (!undoRecord) return;
+    this._undo.push({ rav: undoRecord, selectionKey: key });
+    if (this._undo.length > HISTORY_LIMIT) this._undo.shift();
+    this._redo.length = 0;
+    this.dirty = true;
+    this.reselectRav(key);
+    this.emit('doc');
+  },
+
+  /** Reencontra o objeto selecionado depois que o arquivo foi reindexado. */
+  reselectRav(key) {
+    if (!key) return;
+    const [className, name] = key.split('|');
+    const found = this.doc.objects.find(
+      (object) => object.className === className && object.name === name
+    );
+    this.selection = found ? [found] : [];
+  },
+
   /**
    * Executa uma alteracao no documento registrando o estado anterior.
    * @param {() => void|boolean} fn devolve `false` para cancelar o registro
    */
   mutate(fn) {
     if (!this.doc) return;
+    if (this.kind === 'rav') return this.mutateRav(fn);
     const before = this.snapshot();
     const result = fn();
     if (result === false) return;
@@ -117,6 +167,13 @@ export const store = {
   undo() {
     const entry = this._undo.pop();
     if (!entry) return;
+    if (entry.rav) {
+      this._redo.push({ rav: this.doc.applyPatch(entry.rav), selectionKey: entry.selectionKey });
+      this.dirty = true;
+      this.reselectRav(entry.selectionKey);
+      this.emit('doc');
+      return;
+    }
     this._redo.push(this.snapshot());
     this.restore(entry);
   },
@@ -124,6 +181,13 @@ export const store = {
   redo() {
     const entry = this._redo.pop();
     if (!entry) return;
+    if (entry.rav) {
+      this._undo.push({ rav: this.doc.applyPatch(entry.rav), selectionKey: entry.selectionKey });
+      this.dirty = true;
+      this.reselectRav(entry.selectionKey);
+      this.emit('doc');
+      return;
+    }
     this._undo.push(this.snapshot());
     this.restore(entry);
   },

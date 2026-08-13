@@ -16,7 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 #[derive(Default)]
 struct PendingFile(Mutex<Option<String>>);
 
-const REPORT_EXTENSIONS: [&str; 3] = ["fr3", "term", "xml"];
+const REPORT_EXTENSIONS: [&str; 4] = ["fr3", "term", "xml", "rav"];
 
 /// Primeiro argumento que parece um relatorio existente.
 fn first_report_arg<S: AsRef<str>>(args: &[S]) -> Option<String> {
@@ -97,6 +97,8 @@ pub fn run() {
             refresh_menu,
             files::read_report,
             files::write_report,
+            files::read_binary,
+            files::write_binary,
             files::recent_files,
             files::push_recent,
             files::clear_recent,

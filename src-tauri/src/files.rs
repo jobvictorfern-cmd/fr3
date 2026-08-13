@@ -72,6 +72,73 @@ pub fn write_report(path: String, contents: String, encoding: Encoding) -> Resul
     fs::write(&path, bytes).map_err(|error| format!("Nao foi possivel gravar o arquivo: {error}"))
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BinaryFile {
+    pub path: String,
+    pub name: String,
+    pub base64: String,
+}
+
+/// Le um arquivo binario (.rav) e devolve em base64 — o IPC do Tauri e JSON.
+#[tauri::command]
+pub fn read_binary(path: String) -> Result<BinaryFile, String> {
+    let file = PathBuf::from(&path);
+    let bytes = fs::read(&file).map_err(|error| format!("Nao foi possivel ler o arquivo: {error}"))?;
+    Ok(BinaryFile {
+        path: file.to_string_lossy().to_string(),
+        name: file_name(&file),
+        base64: base64_encode(&bytes),
+    })
+}
+
+#[tauri::command]
+pub fn write_binary(path: String, base64: String) -> Result<(), String> {
+    let bytes = base64_decode(&base64).ok_or("Conteudo binario invalido")?;
+    fs::write(&path, bytes).map_err(|error| format!("Nao foi possivel gravar o arquivo: {error}"))
+}
+
+const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+fn base64_encode(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+        out.push(B64[(n >> 18) as usize & 63] as char);
+        out.push(B64[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { B64[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { B64[n as usize & 63] as char } else { '=' });
+    }
+    out
+}
+
+fn base64_decode(text: &str) -> Option<Vec<u8>> {
+    let mut table = [255u8; 256];
+    for (index, byte) in B64.iter().enumerate() {
+        table[*byte as usize] = index as u8;
+    }
+    let mut out = Vec::with_capacity(text.len() / 4 * 3);
+    let mut buffer = 0u32;
+    let mut bits = 0;
+    for byte in text.bytes() {
+        if byte == b'=' || byte.is_ascii_whitespace() {
+            continue;
+        }
+        let value = table[byte as usize];
+        if value == 255 {
+            return None;
+        }
+        buffer = (buffer << 6) | value as u32;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((buffer >> bits) as u8);
+        }
+    }
+    Some(out)
+}
+
 fn recent_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     let dir = app
         .path()

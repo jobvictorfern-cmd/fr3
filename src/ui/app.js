@@ -11,6 +11,7 @@ import { createTree } from './tree.js';
 import { createInspector } from './inspector.js';
 import { createDataPanel } from './datapanel.js';
 import { createPreview } from './preview.js';
+import { createRavView } from './ravview.js';
 import { isBand, isPage, BAND_LABELS, BAND_TAGS } from '../core/fr3.js';
 import { parseDocument, serialize, cloneNode, childElements } from '../core/xml.js';
 import { pxToMm } from '../core/units.js';
@@ -39,6 +40,12 @@ const preview = createPreview(store, {
   body: $('previewBody'),
   info: $('previewInfo'),
 });
+const ravView = createRavView(store, {
+  tree: $('tree'),
+  inspector: $('inspector'),
+  inspectorTitle: $('inspectorTitle'),
+  canvas: $('canvas'),
+});
 
 /** @type {string[]} objetos copiados, guardados como XML */
 let clipboard = [];
@@ -46,7 +53,11 @@ let clipboard = [];
 /* ------------------------------- renderizacao ------------------------------ */
 
 store.on((what) => {
-  if (what === 'doc' || what === 'view') {
+  document.body.classList.toggle('rav', store.kind === 'rav');
+
+  if (store.kind === 'rav') {
+    if (what !== 'values') ravView.render();
+  } else if (what === 'doc' || what === 'view') {
     canvas.render();
     tree.render();
     dataPanel.render();
@@ -77,6 +88,13 @@ function updateStatus() {
     status.selection.textContent = store.doc ? 'Nada selecionado' : '';
     return;
   }
+  if (store.kind === 'rav') {
+    const object = selection[0];
+    const rect = store.doc.rectMm(object);
+    status.selection.textContent = `${object.className} · ${object.name}`
+      + (rect ? ` · ${rect.left.toFixed(1)} ; ${rect.top.toFixed(1)} mm` : '');
+    return;
+  }
   if (selection.length > 1) {
     status.selection.textContent = `${selection.length} objetos selecionados`;
     return;
@@ -99,6 +117,44 @@ function updateToolbar() {
   $('btnRedo').disabled = !store.canRedo;
   $('btnSave').disabled = !store.doc;
   $('zoomValue').textContent = Math.round(store.zoom * 100) + '%';
+
+  // As ferramentas de layout (inserir, alinhar, zoom, grade, pre-visualizar)
+  // sao escondidas por CSS quando o documento aberto e um .rav.
+}
+
+/* ------------------------------ tela inicial ------------------------------- */
+
+const welcome = $('welcome');
+
+function showWelcome() {
+  welcome.hidden = false;
+}
+
+function hideWelcome() {
+  welcome.hidden = true;
+}
+
+function bindWelcome() {
+  welcome.addEventListener('click', async (event) => {
+    const action = event.target.closest('[data-welcome]')?.dataset.welcome;
+    if (!action) return;
+    if (action === 'new-fr3') {
+      await newDocument();
+      return;
+    }
+    // abrir .fr3 e abrir .rav usam o mesmo dialogo: o formato vem do conteudo
+    await openFile();
+  });
+
+  $('welcomeSample').addEventListener('click', async () => {
+    const sample = await platform.initialFile({ sample: true });
+    applyFile(sample);
+  });
+
+  $('btnHome').addEventListener('click', async () => {
+    if (!(await confirmDiscard())) return;
+    showWelcome();
+  });
 }
 
 /* --------------------------------- arquivos -------------------------------- */
@@ -108,7 +164,8 @@ function applyFile(file) {
   if (!file) return false;
   try {
     store.load(file.contents, file.name, { path: file.path, encoding: file.encoding });
-    fitZoom();
+    hideWelcome();
+    if (store.kind !== 'rav') fitZoom();
     return true;
   } catch (error) {
     platform.alert(`Nao foi possivel abrir "${file.name}":\n${error.message}`);
@@ -141,6 +198,7 @@ async function save({ saveAs = false } = {}) {
     const result = await platform.save(
       {
         contents: store.doc.serialize(),
+        binary: store.kind === 'rav',
         path: store.filePath,
         name: store.fileName,
         encoding: store.encoding,
@@ -162,6 +220,7 @@ async function save({ saveAs = false } = {}) {
 async function newDocument() {
   if (!(await confirmDiscard())) return;
   store.newDocument();
+  hideWelcome();
   fitZoom();
 }
 
@@ -286,6 +345,7 @@ function setZoom(zoom) {
 }
 
 function fitZoom() {
+  if (store.kind === 'rav') return;
   setZoom(canvas.fitZoom());
 }
 
@@ -534,12 +594,11 @@ async function start() {
   bindShortcuts();
   bindDropZone();
   bindPlatform();
+  bindWelcome();
 
+  // Se o aplicativo foi aberto por duplo clique num arquivo, vai direto para ele.
   const initial = await platform.initialFile();
-  if (!applyFile(initial)) {
-    store.newDocument();
-    fitZoom();
-  }
+  if (!applyFile(initial)) showWelcome();
 }
 
 start();
