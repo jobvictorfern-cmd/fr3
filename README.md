@@ -16,8 +16,14 @@ O editor tambem le arquivos com outras extensoes que carregam o mesmo XML
 ```bash
 npm install         # baixa apenas a CLI do Tauri
 npm run tauri:dev   # abre o aplicativo em modo desenvolvimento
-npm run tauri:build # gera o instalador
+npm run tauri:build # gera os instaladores
 ```
+
+No Windows, `tauri build` produz tres coisas em `src-tauri/target/release/`:
+o executavel solto, o instalador **NSIS** (`bundle/nsis/*.exe`, instala por
+usuario, sem pedir administrador) e o **MSI** (`bundle/msi/*.msi`, por maquina,
+proprio para distribuir por GPO/Intune com `msiexec /i ... /qn`). Os dois
+registram a associacao de `.fr3` e `.term`.
 
 Precisa do [Rust](https://rustup.rs) e, no Windows, do WebView2 (ja incluido no
 Windows 10/11). No Linux, dos pacotes `libwebkit2gtk-4.1-dev`,
