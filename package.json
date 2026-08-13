@@ -1,0 +1,14 @@
+{
+  "name": "fr3-editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Editor visual de relatorios FastReport (.fr3) que roda no navegador, sem dependencias.",
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
