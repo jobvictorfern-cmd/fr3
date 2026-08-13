@@ -23,9 +23,12 @@ Precisa do [Rust](https://rustup.rs) e, no Windows, do WebView2 (ja incluido no
 Windows 10/11). No Linux, dos pacotes `libwebkit2gtk-4.1-dev`,
 `build-essential`, `libssl-dev`, `libayatana-appindicator3-dev` e `librsvg2-dev`.
 
-O instalador do Windows tambem sai pronto pelo GitHub Actions: aba **Actions**
--> **Aplicativo desktop** -> **Run workflow**; o `.exe` fica nos artefatos.
-Publicar uma tag `v*` anexa o instalador a uma release.
+Para gerar o instalador do Windows sem ter uma maquina Windows, use o workflow
+pronto em `docs/github-workflow-desktop.yml`: copie-o para
+`.github/workflows/desktop.yml` e faca commit (o GitHub so aceita arquivos de
+workflow enviados por voce, nao por integracoes). Depois e so ir em **Actions**
+-> **Aplicativo desktop** -> **Run workflow**; o `.exe` fica nos artefatos, e
+publicar uma tag `v*` anexa o instalador a uma release.
 
 ### Navegador
 
