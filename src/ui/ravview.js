@@ -1,14 +1,14 @@
 /**
- * Interface para arquivos .rav: arvore de paginas/objetos e painel de
- * propriedades.
+ * Interface para arquivos .rav: pagina desenhada, arvore de paginas/objetos e
+ * painel de propriedades.
  *
- * Nao ha area de desenho como no .fr3 — o Rave guarda coordenadas em
- * polegadas e um conjunto proprio de objetos, e a renderizacao fiel ainda nao
- * foi implementada. O que existe aqui edita o relatorio pela estrutura: achar
- * o objeto, ver e alterar suas propriedades.
+ * O desenho e uma aproximacao — o Rave tem seu proprio motor de renderizacao —
+ * mas serve para achar o objeto na folha, arrastar e conferir o resultado. A
+ * edicao precisa continua sendo pelo painel de propriedades.
  */
 
 import { TAG, INCH_TO_MM } from '../core/rav.js';
+import { renderRavObject, drawableItems, inchToPx } from '../core/ravrender.js';
 
 const CLASS_LABELS = {
   TRaveText: 'Texto',
@@ -249,46 +249,153 @@ export function createRavView(store, elements) {
 
   /* --------------------------------- canvas -------------------------------- */
 
+  /** Todas as paginas do projeto, na ordem do arquivo. */
+  function allPages() {
+    return store.doc.outline().flatMap((report) => report.pages);
+  }
+
+  /** Pagina mostrada: a do objeto selecionado, ou a primeira com conteudo. */
+  function currentPage() {
+    const pages = allPages();
+    if (!pages.length) return null;
+    const selected = store.selection[0];
+    if (selected) {
+      const found = pages.find(
+        (page) => page.object === selected || page.items.includes(selected)
+      );
+      if (found) return found;
+    }
+    return pages.find((page) => drawableItems(store.doc, page).length) || pages[0];
+  }
+
   function renderCanvas() {
     canvas.textContent = '';
-    const object = store.selection[0];
-    const panel = document.createElement('div');
-    panel.className = 'rav-panel';
+    const doc = store.doc;
+    if (!doc) return;
 
-    if (!object) {
-      panel.innerHTML = '<h3>Projeto Rave (.rav)</h3>';
-      const p = document.createElement('p');
-      p.textContent =
-        'Escolha um objeto na estrutura à esquerda. As propriedades aparecem à direita e '
-        + 'podem ser editadas; tudo que você não alterar continua idêntico no arquivo salvo.';
-      panel.appendChild(p);
-    } else {
-      const title = document.createElement('h3');
-      title.textContent = `${CLASS_LABELS[object.className] || object.className} · ${object.name}`;
-      panel.appendChild(title);
-
-      const text = store.doc.displayText(object);
-      if (text) {
-        const pre = document.createElement('pre');
-        pre.className = 'rav-text';
-        pre.textContent = text;
-        panel.appendChild(pre);
-      }
-      const rect = store.doc.rectMm(object);
-      if (rect) {
-        const dims = document.createElement('p');
-        dims.textContent =
-          `Posição ${rect.left.toFixed(1)} ; ${rect.top.toFixed(1)} mm · `
-          + `Tamanho ${rect.width.toFixed(1)} × ${rect.height.toFixed(1)} mm`;
-        panel.appendChild(dims);
-      }
-      const count = document.createElement('p');
-      count.className = 'muted';
-      const editables = object.properties.filter((property) => property.editable).length;
-      count.textContent = `${object.properties.length} propriedades · ${editables} editáveis`;
-      panel.appendChild(count);
+    const page = currentPage();
+    if (!page) {
+      const empty = document.createElement('div');
+      empty.className = 'rav-panel';
+      empty.textContent = 'Nenhuma pagina encontrada neste projeto.';
+      canvas.appendChild(empty);
+      return;
     }
-    canvas.appendChild(panel);
+
+    canvas.appendChild(buildPagePicker(page));
+
+
+    const size = doc.pageSize(page.object);
+    const sheet = document.createElement('div');
+    sheet.className = 'page rav-page';
+    sheet.style.width = inchToPx(size.width) + 'px';
+    sheet.style.height = inchToPx(size.height) + 'px';
+    sheet.style.transform = `scale(${store.zoom})`;
+    sheet.style.transformOrigin = '0 0';
+
+    const items = drawableItems(doc, page);
+    for (const item of items) {
+      const el = renderRavObject(doc, item);
+      if (!el) continue;
+      el.__object = item;
+      el.title = `${CLASS_LABELS[item.className] || item.className}: ${item.name}`;
+      if (store.selection[0] === item) el.classList.add('selected');
+      sheet.appendChild(el);
+    }
+
+    const holder = document.createElement('div');
+    holder.className = 'rav-sheet-holder';
+    holder.style.width = inchToPx(size.width) * store.zoom + 'px';
+    holder.style.height = inchToPx(size.height) * store.zoom + 'px';
+    holder.appendChild(sheet);
+    canvas.appendChild(holder);
+
+    if (!items.length) {
+      const note = document.createElement('p');
+      note.className = 'rav-note';
+      note.textContent =
+        'Esta pagina nao tem objetos com posicao definida — provavelmente e uma pagina de codigo ou de dados.';
+      canvas.appendChild(note);
+    }
+
+    sheet.addEventListener('pointerdown', onSheetPointerDown);
+  }
+
+  /** Lista de paginas do projeto, com a quantidade de objetos desenhaveis. */
+  function buildPagePicker(current) {
+    const bar = document.createElement('div');
+    bar.className = 'rav-pagebar';
+
+    const label = document.createElement('span');
+    label.textContent = 'Pagina';
+    const select = document.createElement('select');
+    const pages = allPages();
+    pages.forEach((page, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = `${page.name} (${drawableItems(store.doc, page).length})`;
+      // A comparacao e pelo objeto da pagina: `outline()` monta agrupamentos
+      // novos a cada chamada, entao comparar os agrupamentos falharia.
+      option.selected = page.object === current.object;
+      select.appendChild(option);
+    });
+    select.addEventListener('change', () => {
+      const page = allPages()[Number(select.value)];
+      if (page) store.select(page.object);
+    });
+
+    const info = document.createElement('span');
+    info.className = 'muted';
+    const size = store.doc.pageSize(current.object);
+    info.textContent =
+      `${(size.width * INCH_TO_MM).toFixed(0)} × ${(size.height * INCH_TO_MM).toFixed(0)} mm`
+      + ` · ${drawableItems(store.doc, current).length} objetos`;
+
+    bar.append(label, select, info);
+    return bar;
+  }
+
+  /** Arrastar move o objeto; a posicao e gravada ao soltar. */
+  function onSheetPointerDown(event) {
+    const target = event.target.closest('.rav-obj');
+    if (!target || !target.__object) return;
+    const object = target.__object;
+    store.select(object);
+
+    const rect = store.doc.rect(object);
+    if (!rect) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let moved = { x: 0, y: 0 };
+
+    const move = (moveEvent) => {
+      moved = {
+        x: (moveEvent.clientX - startX) / store.zoom / 96,
+        y: (moveEvent.clientY - startY) / store.zoom / 96,
+      };
+      target.style.left = inchToPx(rect.left + moved.x) + 'px';
+      target.style.top = inchToPx(rect.top + moved.y) + 'px';
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (Math.abs(moved.x) < 0.005 && Math.abs(moved.y) < 0.005) return;
+      store.mutate(() =>
+        store.doc.setMany(object, { Left: rect.left + moved.x, Top: rect.top + moved.y })
+      );
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    event.preventDefault();
+  }
+
+  /** Zoom que faz a folha caber na area visivel. */
+  function fitZoom() {
+    const page = store.doc && currentPage();
+    if (!page) return 1;
+    const size = store.doc.pageSize(page.object);
+    const available = canvas.parentElement.clientWidth - 60;
+    return Math.max(0.15, Math.min(2, available / inchToPx(size.width)));
   }
 
   function render() {
@@ -297,5 +404,5 @@ export function createRavView(store, elements) {
     renderCanvas();
   }
 
-  return { render, renderTree, renderInspector, renderCanvas };
+  return { render, renderTree, renderInspector, renderCanvas, fitZoom };
 }

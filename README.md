@@ -6,8 +6,8 @@ formatos:
 
 - **FastReport `.fr3`** (tambem `.term`/`.xml`): editor visual completo —
   pagina em escala real, arrastar, redimensionar, pre-visualizar e imprimir.
-- **Rave Reports `.rav`**: edicao pela estrutura — achar o objeto, ver e
-  alterar textos, medidas e demais propriedades.
+- **Rave Reports `.rav`**: pagina desenhada na tela, com arraste, mais edicao
+  de textos, medidas e demais propriedades pela estrutura.
 
 Ao abrir, uma tela inicial pergunta o que voce quer fazer. Abre o arquivo, mostra a pagina com as bandas e os
 objetos como no designer do FastReport, permite editar e devolve um `.fr3` que
@@ -61,6 +61,9 @@ iniciar; no desktop, abre o arquivo que voce clicou (ou um relatorio em branco).
 O `.rav` e binario e o formato nao e documentado; o suporte aqui veio de
 engenharia reversa e cobre a parte util para manutencao de relatorio:
 
+- **pagina desenhada na tela**: a folha em escala real com textos, campos,
+  linhas, retangulos e secoes, com seletor de pagina e zoom. Objetos podem ser
+  **arrastados**, e a nova posicao e gravada nas duas medidas de uma vez;
 - **estrutura navegavel**: paginas e objetos (texto, campo de dados, memo,
   linhas, retangulos, secoes, imagens) com filtro por nome ou conteudo;
 - **edicao de propriedades**: textos, expressoes de campo, medidas (mostradas
@@ -74,8 +77,9 @@ engenharia reversa e cobre a parte util para manutencao de relatorio:
   de MB (o exemplo usado no desenvolvimento tem 15 MB e 7.141 objetos, e abre
   em menos de um segundo).
 
-Ainda **nao** existe: desenho visual da pagina Rave, criar um `.rav` do zero e
-edicao de imagens embutidas. Como o formato e reconstruido por observacao,
+O desenho e uma aproximacao feita com as fontes do navegador — serve para achar
+e posicionar objetos, nao para conferir a impressao. Ainda **nao** existe:
+criar um `.rav` do zero, redimensionar pela tela e edicao de imagens embutidas. Como o formato e reconstruido por observacao,
 **valide o relatorio no Rave Designer antes de publicar** — e guarde uma copia
 do arquivo original.
 
@@ -173,7 +177,8 @@ src/ui/tree.js        arvore da estrutura
 src/ui/inspector.js   painel de propriedades
 src/ui/datapanel.js   variaveis, datasets e valores de teste
 src/ui/preview.js     pre-visualizacao/impressao
-src/ui/ravview.js     estrutura e propriedades dos arquivos .rav
+src/core/ravrender.js desenho dos objetos Rave em DOM
+src/ui/ravview.js     pagina, estrutura e propriedades dos arquivos .rav
 src/ui/platform.js    ponte navegador x desktop (arquivos, menu, dialogos)
 scripts/serve.js      servidor estatico de desenvolvimento
 scripts/build-dist.js monta dist/ para o Tauri e para publicacao

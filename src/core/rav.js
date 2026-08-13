@@ -304,7 +304,7 @@ export class RavDocument {
    * Substitui o valor de uma propriedade preservando o resto do arquivo.
    * @returns {boolean} false se o tipo nao for editavel
    */
-  setValue(property, value) {
+  setValue(property, value, { rescan = true } = {}) {
     if (!property?.editable) return false;
     let encoded;
     switch (property.tag) {
@@ -330,11 +330,39 @@ export class RavDocument {
       default:
         return false;
     }
-    return this.splice(property.valueStart, property.valueEnd, encoded);
+    return this.splice(property.valueStart, property.valueEnd, encoded, { rescan });
   }
 
-  /** Reaplica um registro devolvido por `splice` (desfazer/refazer). */
+  /**
+   * Altera varias propriedades do mesmo objeto de uma vez (ex.: Left e Top ao
+   * arrastar). As gravacoes vao do fim para o comeco do arquivo, assim os
+   * deslocamentos ainda nao gravados continuam validos, e o indice e
+   * reconstruido uma vez so.
+   */
+  setMany(object, values) {
+    const targets = Object.entries(values)
+      .map(([name, value]) => ({ property: this.property(object, name), value }))
+      .filter((item) => item.property?.editable)
+      .sort((a, b) => b.property.valueStart - a.property.valueStart);
+    if (!targets.length) return null;
+
+    const patches = targets.map(({ property, value }) =>
+      this.setValue(property, value, { rescan: false })
+    );
+    this.scan();
+    return patches.length === 1 ? patches[0] : { multi: patches };
+  }
+
+  /** Reaplica um registro devolvido por `splice`/`setMany` (desfazer/refazer). */
   applyPatch(patch) {
+    if (patch?.multi) {
+      const inverse = patch.multi
+        .slice()
+        .sort((a, b) => b.start - a.start)
+        .map((item) => this.splice(item.start, item.end, item.bytes, { rescan: false }));
+      this.scan();
+      return { multi: inverse };
+    }
     return this.splice(patch.start, patch.end, patch.bytes);
   }
 
@@ -342,14 +370,14 @@ export class RavDocument {
    * Troca um trecho de bytes e reindexa o arquivo.
    * @returns registro para desfazer: o trecho original e onde ele estava.
    */
-  splice(start, end, replacement) {
+  splice(start, end, replacement, { rescan = true } = {}) {
     const previous = this.bytes.slice(start, end);
     const out = new Uint8Array(this.bytes.length - (end - start) + replacement.length);
     out.set(this.bytes.subarray(0, start), 0);
     out.set(replacement, start);
     out.set(this.bytes.subarray(end), start + replacement.length);
     this.bytes = out;
-    this.scan();
+    if (rescan) this.scan();
     return { start, end: start + replacement.length, bytes: previous };
   }
 
@@ -364,7 +392,12 @@ export class RavDocument {
    * `TRaveComponent.GetName`). Ele nao faz parte do relatorio.
    */
   isDictionaryEntry(object) {
-    return object.name.includes('.') || object.name.startsWith('TRave') || !object.name;
+    return (
+      !object.name
+      || object.name === 'Value'
+      || object.name.includes('.')
+      || object.name.startsWith('TRave')
+    );
   }
 
   get reportObjects() {
@@ -399,6 +432,69 @@ export class RavDocument {
 
   property(object, name) {
     return object.properties.find((property) => property.name === name) || null;
+  }
+
+  /**
+   * Fonte de um objeto de texto. O Rave grava a fonte como objeto aninhado
+   * (`Font` com o tipo 8) e as propriedades seguintes — Name, Size, Style,
+   * Color — pertencem a ela.
+   */
+  fontOf(object) {
+    const start = object.properties.findIndex(
+      (property) => property.name === 'Font' && property.tag === TAG.OBJECT
+    );
+    const font = { name: 'Arial', size: 10, bold: false, italic: false, underline: false, color: 0 };
+    if (start === -1) return font;
+
+    for (const property of object.properties.slice(start + 1, start + 8)) {
+      switch (property.name) {
+        case 'Name': if (property.tag === TAG.STRING) font.name = property.value; break;
+        case 'Size': font.size = Number(property.value) || font.size; break;
+        case 'Color': font.color = Number(property.value) || 0; break;
+        case 'Style':
+          if (Array.isArray(property.value)) {
+            font.bold = property.value.includes('fsBold');
+            font.italic = property.value.includes('fsItalic');
+            font.underline = property.value.includes('fsUnderline');
+          }
+          break;
+        case 'Charset': break;
+        default: return font; // saiu do bloco da fonte
+      }
+    }
+    return font;
+  }
+
+  /** Tamanho da pagina em polegadas. */
+  pageSize(page) {
+    return {
+      width: this.property(page, 'PageWidth')?.value ?? 8.5,
+      height: this.property(page, 'PageHeight')?.value ?? 11,
+    };
+  }
+
+  /** Retangulo em polegadas, como o Rave grava. */
+  rect(object) {
+    const value = (name) => {
+      const property = this.property(object, name);
+      return property && property.tag === TAG.EXTENDED ? property.value : null;
+    };
+    const left = value('Left');
+    const top = value('Top');
+    if (left === null || top === null) return null;
+    return { left, top, width: value('Width') ?? 0, height: value('Height') ?? 0 };
+  }
+
+  /** Cor TColor (BGR) -> `#rrggbb`. */
+  colorOf(object, name, fallback = null) {
+    const property = this.property(object, name);
+    if (!property || property.value === null || Array.isArray(property.value)) return fallback;
+    const value = Number(property.value);
+    if (!Number.isFinite(value) || value < 0 || value > 0xffffff) return fallback;
+    const b = (value >> 16) & 0xff;
+    const g = (value >> 8) & 0xff;
+    const r = value & 0xff;
+    return '#' + [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
   }
 
   /** Retangulo do objeto em milimetros, quando ele tiver geometria. */

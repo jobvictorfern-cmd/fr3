@@ -165,7 +165,7 @@ function applyFile(file) {
   try {
     store.load(file.contents, file.name, { path: file.path, encoding: file.encoding });
     hideWelcome();
-    if (store.kind !== 'rav') fitZoom();
+    fitZoom();
     return true;
   } catch (error) {
     platform.alert(`Nao foi possivel abrir "${file.name}":\n${error.message}`);
@@ -345,7 +345,10 @@ function setZoom(zoom) {
 }
 
 function fitZoom() {
-  if (store.kind === 'rav') return;
+  if (store.kind === 'rav') {
+    setZoom(ravView.fitZoom());
+    return;
+  }
   setZoom(canvas.fitZoom());
 }
 

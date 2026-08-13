@@ -530,6 +530,64 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 
 body.rav .fr3-only { display: none !important; }
+
+/* ------------------------- desenho da pagina Rave ------------------------ */
+
+.rav-pagebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--text-invert);
+}
+
+.rav-pagebar select {
+  padding: 3px 6px;
+  border: 1px solid var(--border-dark);
+  border-radius: 4px;
+  background: var(--bg-soft);
+  color: var(--text-invert);
+  max-width: 320px;
+}
+
+.rav-pagebar .muted { color: #c3cad6; }
+.rav-note { max-width: 640px; color: #e8eaf0; }
+
+.rav-sheet-holder { position: relative; }
+.rav-page { position: relative; overflow: hidden; }
+
+.rav-obj {
+  position: absolute;
+  overflow: hidden;
+  outline: 1px dotted rgba(120, 132, 158, 0.45);
+  outline-offset: -1px;
+  cursor: move;
+  line-height: 1.15;
+}
+
+.rav-obj.selected { outline: 1.5px solid var(--accent); outline-offset: -1px; }
+.rav-obj-data { color: #1b4fa8; }
+.rav-obj-line { outline: 0; }
+.rav-obj-container { outline: 1px dashed #9aa7bd; background: rgba(47, 111, 235, 0.04); }
+.rav-obj-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 0 4px;
+  font-size: 9px;
+  color: #4b5a76;
+  background: #e3e9f4;
+}
+.rav-obj-bitmap,
+.rav-obj-generic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #7b879b;
+  background: repeating-linear-gradient(45deg, #f3f5f9, #f3f5f9 6px, #e8ecf3 6px, #e8ecf3 12px);
+}
+.rav-hidden { opacity: 0.35; }
 body.rav .ruler,
 body.rav .ruler-corner { display: none; }
 body.rav .workspace { grid-template-columns: 1fr; grid-template-rows: 1fr; }
