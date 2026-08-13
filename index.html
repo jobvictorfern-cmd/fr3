@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor FR3 — FastReport</title>
+<link rel="stylesheet" href="styles/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>📄</text></svg>">
+</head>
+<body>
+<div id="app">
+  <header class="toolbar">
+    <div class="tb-group">
+      <strong class="brand">FR3</strong>
+      <button id="btnNew" class="tb-btn" title="Novo relatorio (Ctrl+Alt+N)">Novo</button>
+      <button id="btnOpen" class="tb-btn" title="Abrir .fr3 (Ctrl+O)">Abrir</button>
+      <button id="btnSave" class="tb-btn primary" title="Salvar .fr3 (Ctrl+S)">Salvar</button>
+      <input id="fileInput" type="file" accept=".fr3,.term,.xml,text/xml" hidden>
+    </div>
+
+    <div class="tb-group">
+      <button id="btnUndo" class="tb-btn icon" title="Desfazer (Ctrl+Z)">↶</button>
+      <button id="btnRedo" class="tb-btn icon" title="Refazer (Ctrl+Y)">↷</button>
+    </div>
+
+    <div class="tb-group" id="insertGroup">
+      <span class="tb-label">Inserir</span>
+      <button class="tb-btn" data-insert="TfrxMemoView" title="Objeto de texto">Texto</button>
+      <button class="tb-btn" data-insert="TfrxLineView" title="Linha">Linha</button>
+      <button class="tb-btn" data-insert="TfrxPictureView" title="Imagem">Imagem</button>
+      <button class="tb-btn" data-insert="TfrxShapeView" title="Forma">Forma</button>
+      <button class="tb-btn" data-insert="TfrxBarCodeView" title="Codigo de barras">Cod. barras</button>
+      <button id="btnAddBand" class="tb-btn" title="Adicionar banda">Banda…</button>
+    </div>
+
+    <div class="tb-group" id="alignGroup">
+      <span class="tb-label">Alinhar</span>
+      <button class="tb-btn icon" data-align="left" title="Alinhar a esquerda">⇤</button>
+      <button class="tb-btn icon" data-align="hcenter" title="Centralizar na horizontal">⇔</button>
+      <button class="tb-btn icon" data-align="right" title="Alinhar a direita">⇥</button>
+      <button class="tb-btn icon" data-align="top" title="Alinhar ao topo">⤒</button>
+      <button class="tb-btn icon" data-align="vcenter" title="Centralizar na vertical">⇕</button>
+      <button class="tb-btn icon" data-align="bottom" title="Alinhar a base">⤓</button>
+      <button class="tb-btn icon" data-align="width" title="Mesma largura">↔=</button>
+      <button class="tb-btn icon" data-align="height" title="Mesma altura">↕=</button>
+      <button class="tb-btn icon" data-align="center-page" title="Centralizar na banda">⊙</button>
+    </div>
+
+    <div class="tb-group">
+      <button id="btnZoomOut" class="tb-btn icon" title="Reduzir">−</button>
+      <span id="zoomValue" class="tb-value">100%</span>
+      <button id="btnZoomIn" class="tb-btn icon" title="Ampliar">+</button>
+      <button id="btnZoomFit" class="tb-btn" title="Ajustar a janela">Ajustar</button>
+    </div>
+
+    <div class="tb-group">
+      <label class="tb-check"><input type="checkbox" id="chkGrid" checked> Grade</label>
+      <label class="tb-check"><input type="checkbox" id="chkSnap" checked> Ajustar</label>
+      <select id="selUnit" class="tb-select" title="Unidade das medidas">
+        <option value="mm">mm</option>
+        <option value="px">px</option>
+      </select>
+    </div>
+
+    <div class="tb-group right">
+      <button id="btnPreview" class="tb-btn primary" title="Visualizar (F5)">Visualizar</button>
+    </div>
+  </header>
+
+  <main class="workbench">
+    <aside class="panel panel-left">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="tree" role="tab">Estrutura</button>
+        <button class="tab" data-tab="data" role="tab">Dados</button>
+      </div>
+      <div class="tab-panel active" data-panel="tree">
+        <div id="tree" class="tree"></div>
+      </div>
+      <div class="tab-panel" data-panel="data">
+        <div id="dataPanel" class="data-panel"></div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <div class="ruler-corner"></div>
+      <div id="rulerH" class="ruler ruler-h"></div>
+      <div id="rulerV" class="ruler ruler-v"></div>
+      <div id="canvasScroll" class="canvas-scroll">
+        <div id="canvas" class="canvas"></div>
+      </div>
+    </section>
+
+    <aside class="panel panel-right">
+      <div class="panel-title" id="inspectorTitle">Propriedades</div>
+      <div id="inspector" class="inspector"></div>
+    </aside>
+  </main>
+
+  <footer class="statusbar">
+    <span id="statusFile">Nenhum arquivo</span>
+    <span id="statusSelection"></span>
+    <span id="statusHint"></span>
+    <span id="statusPointer" class="right"></span>
+  </footer>
+</div>
+
+<div id="preview" class="preview" hidden>
+  <div class="preview-bar">
+    <strong>Pre-visualizacao</strong>
+    <span id="previewInfo" class="muted"></span>
+    <span class="spacer"></span>
+    <button id="btnPreviewPrint" class="tb-btn">Imprimir / PDF</button>
+    <button id="btnPreviewClose" class="tb-btn">Fechar (Esc)</button>
+  </div>
+  <div id="previewBody" class="preview-body"></div>
+</div>
+
+<div id="dropHint" class="drop-hint" hidden>Solte o arquivo .fr3 para abrir</div>
+
+<script type="module" src="src/ui/app.js"></script>
+</body>
+</html>
