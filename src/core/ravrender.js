@@ -10,7 +10,7 @@ const PX_PER_INCH = 96;
 
 export const inchToPx = (value) => value * PX_PER_INCH;
 
-const CONTAINERS = new Set(['TRaveSection', 'TRaveRegion', 'TRaveBand', 'TRaveDataBand']);
+import { CONTAINER_CLASSES as CONTAINERS } from './rav.js';
 
 /** Alinhamento horizontal do Rave -> CSS. */
 const JUSTIFY = {
@@ -94,6 +94,7 @@ function renderRectangle(doc, object, rect) {
 function renderContainer(doc, object, rect) {
   const el = document.createElement('div');
   el.className = 'rav-obj rav-obj-container';
+  el.style.overflow = 'visible';
   applyRect(el, rect);
   const label = document.createElement('span');
   label.className = 'rav-obj-label';
@@ -158,9 +159,30 @@ export function renderRavObject(doc, object) {
   return el;
 }
 
-/** Objetos da pagina que tem geometria, containers primeiro (ficam ao fundo). */
-export function drawableItems(doc, page) {
-  const items = page.items.filter((item) => doc.rect(item));
-  const weight = (item) => (CONTAINERS.has(item.className) ? 0 : 1);
-  return items.sort((a, b) => weight(a) - weight(b));
+/**
+ * Desenha a arvore de uma pagina. Os filhos entram dentro do elemento do
+ * container, entao o posicionamento relativo do Rave sai correto sem conta
+ * nenhuma: e o mesmo que o CSS faz com `position: absolute`.
+ * @returns {HTMLElement[]} elementos de primeiro nivel
+ */
+export function renderRavTree(doc, nodes, onElement) {
+  const elements = [];
+  for (const node of nodes) {
+    const el = renderRavObject(doc, node.object);
+    if (!el) continue;
+    onElement?.(el, node.object);
+    for (const child of node.children) {
+      const childEl = renderRavObject(doc, child.object);
+      if (!childEl) continue;
+      onElement?.(childEl, child.object);
+      el.appendChild(childEl);
+    }
+    elements.push(el);
+  }
+  return elements;
+}
+
+/** Quantos objetos da pagina aparecem no desenho. */
+export function drawableCount(doc, page) {
+  return doc.pageTree(page).reduce((total, node) => total + 1 + node.children.length, 0);
 }

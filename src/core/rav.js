@@ -50,6 +50,18 @@ const EDITABLE = new Set([TAG.IDENT, TAG.INT8, TAG.INT16, TAG.INT32, TAG.EXTENDE
 
 const NUMERIC = new Set([TAG.INT8, TAG.INT16, TAG.INT32, TAG.EXTENDED]);
 
+/**
+ * Classes que agrupam outros objetos. No arquivo, os objetos que vem logo
+ * depois de um container pertencem a ele, e suas coordenadas sao relativas ao
+ * canto do container — nao a pagina.
+ */
+export const CONTAINER_CLASSES = new Set([
+  'TRaveSection',
+  'TRaveRegion',
+  'TRaveBand',
+  'TRaveDataBand',
+]);
+
 /** Polegadas -> milimetros: o Rave grava coordenadas em polegadas. */
 export const INCH_TO_MM = 25.4;
 
@@ -428,6 +440,38 @@ export class RavDocument {
       if (page) page.items.push(object);
     }
     return groups;
+  }
+
+  /**
+   * Arvore de desenho de uma pagina: cada container com os objetos que o
+   * seguem no arquivo. Objetos sem geometria ficam de fora.
+   */
+  pageTree(page) {
+    const roots = [];
+    let container = null;
+    for (const object of page.items) {
+      if (!this.rect(object)) continue;
+      const node = { object, children: [] };
+      if (CONTAINER_CLASSES.has(object.className)) {
+        container = node;
+        roots.push(node);
+      } else if (container) {
+        container.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+    return roots;
+  }
+
+  /** Container ao qual o objeto pertence, se houver. */
+  containerOf(page, object) {
+    let container = null;
+    for (const item of page.items) {
+      if (item === object) return container;
+      if (CONTAINER_CLASSES.has(item.className) && this.rect(item)) container = item;
+    }
+    return null;
   }
 
   property(object, name) {

@@ -8,7 +8,7 @@
  */
 
 import { TAG, INCH_TO_MM } from '../core/rav.js';
-import { renderRavObject, drawableItems, inchToPx } from '../core/ravrender.js';
+import { renderRavTree, drawableCount, inchToPx } from '../core/ravrender.js';
 
 const CLASS_LABELS = {
   TRaveText: 'Texto',
@@ -153,7 +153,11 @@ export function createRavView(store, elements) {
 
     const geometry = doc.rectMm(object);
     if (geometry) {
-      const group = section('Posicao e tamanho (mm)');
+      const page = currentPage();
+      const container = page ? doc.containerOf(page, object) : null;
+      const group = section(
+        container ? `Posicao e tamanho (mm, dentro de ${container.name})` : 'Posicao e tamanho (mm)'
+      );
       for (const [label, prop] of [['Esquerda', 'Left'], ['Topo', 'Top'], ['Largura', 'Width'], ['Altura', 'Height']]) {
         const property = doc.property(object, prop);
         if (property) measureField(group, label, property);
@@ -265,7 +269,7 @@ export function createRavView(store, elements) {
       );
       if (found) return found;
     }
-    return pages.find((page) => drawableItems(store.doc, page).length) || pages[0];
+    return pages.find((page) => drawableCount(store.doc, page)) || pages[0];
   }
 
   function renderCanvas() {
@@ -293,13 +297,12 @@ export function createRavView(store, elements) {
     sheet.style.transform = `scale(${store.zoom})`;
     sheet.style.transformOrigin = '0 0';
 
-    const items = drawableItems(doc, page);
-    for (const item of items) {
-      const el = renderRavObject(doc, item);
-      if (!el) continue;
-      el.__object = item;
-      el.title = `${CLASS_LABELS[item.className] || item.className}: ${item.name}`;
-      if (store.selection[0] === item) el.classList.add('selected');
+    const total = drawableCount(doc, page);
+    for (const el of renderRavTree(doc, doc.pageTree(page), (element, object) => {
+      element.__object = object;
+      element.title = `${CLASS_LABELS[object.className] || object.className}: ${object.name}`;
+      if (store.selection[0] === object) element.classList.add('selected');
+    })) {
       sheet.appendChild(el);
     }
 
@@ -310,7 +313,7 @@ export function createRavView(store, elements) {
     holder.appendChild(sheet);
     canvas.appendChild(holder);
 
-    if (!items.length) {
+    if (!total) {
       const note = document.createElement('p');
       note.className = 'rav-note';
       note.textContent =
@@ -333,7 +336,7 @@ export function createRavView(store, elements) {
     pages.forEach((page, index) => {
       const option = document.createElement('option');
       option.value = String(index);
-      option.textContent = `${page.name} (${drawableItems(store.doc, page).length})`;
+      option.textContent = `${page.name} (${drawableCount(store.doc, page)})`;
       // A comparacao e pelo objeto da pagina: `outline()` monta agrupamentos
       // novos a cada chamada, entao comparar os agrupamentos falharia.
       option.selected = page.object === current.object;
@@ -349,7 +352,7 @@ export function createRavView(store, elements) {
     const size = store.doc.pageSize(current.object);
     info.textContent =
       `${(size.width * INCH_TO_MM).toFixed(0)} × ${(size.height * INCH_TO_MM).toFixed(0)} mm`
-      + ` · ${drawableItems(store.doc, current).length} objetos`;
+      + ` · ${drawableCount(store.doc, current)} objetos`;
 
     bar.append(label, select, info);
     return bar;

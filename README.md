@@ -62,7 +62,10 @@ O `.rav` e binario e o formato nao e documentado; o suporte aqui veio de
 engenharia reversa e cobre a parte util para manutencao de relatorio:
 
 - **pagina desenhada na tela**: a folha em escala real com textos, campos,
-  linhas, retangulos e secoes, com seletor de pagina e zoom. Objetos podem ser
+  linhas, retangulos e secoes, com seletor de pagina e zoom. Os objetos que
+  seguem uma secao no arquivo pertencem a ela e tem coordenadas relativas ao
+  seu canto — o desenho respeita esse aninhamento, e o painel indica quando a
+  medida e relativa a uma secao. Objetos podem ser
   **arrastados**, e a nova posicao e gravada nas duas medidas de uma vez;
 - **estrutura navegavel**: paginas e objetos (texto, campo de dados, memo,
   linhas, retangulos, secoes, imagens) com filtro por nome ou conteudo;
