@@ -529,7 +529,11 @@ export class RavDocument {
     return { left, top, width: value('Width') ?? 0, height: value('Height') ?? 0 };
   }
 
-  /** Cor TColor (BGR) -> `#rrggbb`. */
+  /**
+   * Cor TColor (0x00BBGGRR) -> `#rrggbb`. Vale a mesma convencao do Delphi:
+   * 0x1FFFFFFF e "sem cor" e valores acima de 0x00FFFFFF sao cores de sistema
+   * — nos dois casos devolvemos o padrao informado.
+   */
   colorOf(object, name, fallback = null) {
     const property = this.property(object, name);
     if (!property || property.value === null || Array.isArray(property.value)) return fallback;

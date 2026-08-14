@@ -50,14 +50,35 @@ function renderText(doc, object, rect) {
   el.style.fontWeight = font.bold ? '700' : '400';
   el.style.fontStyle = font.italic ? 'italic' : 'normal';
   el.style.textDecoration = font.underline ? 'underline' : 'none';
-  el.style.color = doc.colorOf(object, 'Color', '#000') || '#000';
+  el.style.color = tcolor(font.color, '#000');
   el.style.textAlign = JUSTIFY[doc.property(object, 'FontJustify')?.value] || 'left';
   if (object.className === 'TRaveMemo' || object.className === 'TRaveDataMemo') {
     el.style.whiteSpace = 'pre-wrap';
   }
   el.textContent = textOf(doc, object);
   if (object.className.includes('Data')) el.classList.add('rav-obj-data');
+
+  // O Rave gira o texto em torno do canto superior esquerdo, em graus
+  // anti-horarios (e assim que sai o carimbo diagonal de "pesagem manual").
+  const rotation = Number(doc.property(object, 'Rotation')?.value) || 0;
+  if (rotation) {
+    el.style.transform = `rotate(${-rotation}deg)`;
+    el.style.transformOrigin = '0 0';
+    el.style.overflow = 'visible';
+    el.style.whiteSpace = 'nowrap';
+    el.style.width = 'max-content';
+  }
   return el;
+}
+
+/** TColor numerico -> `#rrggbb`, com o mesmo tratamento de clNone. */
+function tcolor(value, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || number > 0xffffff) return fallback;
+  const b = (number >> 16) & 0xff;
+  const g = (number >> 8) & 0xff;
+  const r = number & 0xff;
+  return '#' + [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
 }
 
 function renderLine(doc, object, rect, horizontal) {

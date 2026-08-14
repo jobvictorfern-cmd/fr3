@@ -577,7 +577,13 @@ body.rav .fr3-only { display: none !important; }
   font-size: 9px;
   color: #4b5a76;
   background: #e3e9f4;
+  /* So aparece ao passar o mouse ou quando a secao esta selecionada: com
+     varias secoes na mesma folha os rotulos se sobrepunham. */
+  display: none;
 }
+
+.rav-obj-container:hover > .rav-obj-label,
+.rav-obj-container.selected > .rav-obj-label { display: block; }
 .rav-obj-bitmap,
 .rav-obj-generic {
   display: flex;
